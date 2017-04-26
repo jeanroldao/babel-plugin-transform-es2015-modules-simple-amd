@@ -17,6 +17,7 @@ module.exports = function (_ref) {
 		visitor: {
 			Program: {
 				exit: function exit(path, file) {
+					//console.log(path, file);
 					var body = path.get("body"),
 					    sources = [],
 					    anonymousSources = [],
@@ -102,10 +103,17 @@ module.exports = function (_ref) {
 									middleDefaultExportID,
 									t.objectExpression(middleExportIDs.map(id => t.objectProperty(t.stringLiteral(id.name), id)))
 								])));
-              } else if (middleDefaultExportID ){
+              } else if (middleDefaultExportID) {
                 _path.insertAfter(t.returnStatement(middleDefaultExportID));
               } else if (middleExportIDs.length > 0) {
-                _path.insertAfter(t.returnStatement(t.objectExpression(middleExportIDs.map(id => t.objectProperty(t.stringLiteral(id.name), id)))))
+								sources.unshift(t.stringLiteral('exports'));
+								var exportsPath = path.scope.generateUidIdentifier('exports');
+								vars.unshift(exportsPath);
+								
+								_path.insertAfter(t.returnStatement(t.callExpression(t.memberExpression(t.identifier("Object"), t.identifier("assign")), [
+									exportsPath,
+									t.objectExpression(middleExportIDs.map(id => t.objectProperty(t.stringLiteral(id.name), id)))
+								])));
               }
             }
 					}
