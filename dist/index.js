@@ -3,12 +3,23 @@
 require("better-log/install");
 
 var _babelTemplate = require("babel-template");
+var babylon = require("babylon");
 
 var _babelTemplate2 = _interopRequireDefault(_babelTemplate);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var buildModule = (0, _babelTemplate2.default)("\ndefine([IMPORT_PATHS], function(IMPORT_VARS) {\n\tNAMED_IMPORTS;\n\tBODY;\n});\n");
+var buildModule = (0, _babelTemplate2.default)(`
+define([IMPORT_PATHS], function(IMPORT_VARS) {
+    var imports = {};
+    NAMED_IMPORTS;
+    with (imports) { 
+      BODY;
+    }
+});
+`);
+
+var buildFunc = (0, _babelTemplate2.default)("function() { babelHelpers.interopRequireDefault(IMPORT).default; }");
 
 module.exports = function (_ref) {
   var t = _ref.types;
@@ -17,7 +28,6 @@ module.exports = function (_ref) {
     visitor: {
       Program: {
         exit: function exit(path, file) {
-          //console.log(path, file);
           var body = path.get("body"),
               sources = [],
               anonymousSources = [],
@@ -66,26 +76,24 @@ module.exports = function (_ref) {
 
               if (specifiers.length == 0) {
                 anonymousSources.push(_path.node.source);
-              } else if (specifiers.length == 1 && specifiers[0].type == 'ImportDefaultSpecifier') {
-                sources.push(_path.node.source);
-                vars.push(specifiers[0]);
               } else {
-                (function () {
-                  var importedID = _path.scope.generateUidIdentifier(_path.node.source.value);
-                  sources.push(_path.node.source);
-                  vars.push(importedID);
+                var importedID = _path.scope.generateUidIdentifier(_path.node.source.value);
+                sources.push(_path.node.source);
+                vars.push(importedID);
 
-                  specifiers.forEach(function (_ref2) {
-                    var imported = _ref2.imported;
-                    var local = _ref2.local;
+                specifiers.forEach(function (_ref2) {
+                  var imported = _ref2.imported;
+                  var local = _ref2.local;
+                  var type = _ref2.type;
 
-                    //console.log({local, importedID, imported});
-                    namedImports.push(t.variableDeclaration("var", [
-                      t.variableDeclarator(t.identifier(local.name), 
-                      t.identifier((imported ? importedID.name + '.' + imported.name : importedID.name)))
-                    ]));
-                  });
-                })();
+                  if (imported) {
+                    var importHelper = t.memberExpression(t.identifier("babelHelpers"), t.identifier("createInteropRequire"));
+                    namedImports.push(t.callExpression(importHelper, [t.identifier("imports"), t.stringLiteral(local.name), t.stringLiteral(imported.name), t.identifier(importedID.name)]));
+                  } else if (type == 'ImportDefaultSpecifier') {
+                    var importHelper = t.memberExpression(t.identifier("babelHelpers"), t.identifier("createInteropRequire"));
+                    namedImports.push(t.callExpression(importHelper, [t.identifier("imports"), t.stringLiteral(local.name), t.stringLiteral('default'), t.identifier(importedID.name)]));
+                  }
+                });
               }
 
               _path.remove();
@@ -94,23 +102,29 @@ module.exports = function (_ref) {
             }
 
             if (isLast) {
-              if (middleDefaultExportID && middleExportIDs.length > 0) {
-                _path.insertAfter(t.returnStatement(t.callExpression(t.memberExpression(t.identifier("Object"), t.identifier("assign")), [
-                  middleDefaultExportID,
-                  t.objectExpression(middleExportIDs.map(id => t.objectProperty(t.stringLiteral(id.name), id)))
-                ])));
-              } else if (middleDefaultExportID) {
-                _path.insertAfter(t.returnStatement(middleDefaultExportID));
-              } else if (middleExportIDs.length > 0) {
+              var importExpressions = [
+                t.objectProperty(t.stringLiteral('__esModule'), t.booleanLiteral(true))
+              ];
+              
+              if (middleDefaultExportID) {
+                importExpressions.push(t.objectProperty(t.stringLiteral('default'), middleDefaultExportID));
+              }
+              
+              if (middleExportIDs.length > 0) {
+                importExpressions = importExpressions.concat(middleExportIDs.map(id => t.objectProperty(t.stringLiteral(id.name), id)));
+              }
+              
+              if (importExpressions.length > 0) {
                 sources.unshift(t.stringLiteral('exports'));
                 var exportsPath = path.scope.generateUidIdentifier('exports');
                 vars.unshift(exportsPath);
                 
-                _path.insertAfter(t.returnStatement(t.callExpression(t.memberExpression(t.identifier("Object"), t.identifier("assign")), [
+                _path.insertAfter(t.callExpression(t.memberExpression(t.identifier("Object"), t.identifier("assign")), [
                   exportsPath,
-                  t.objectExpression(middleExportIDs.map(id => t.objectProperty(t.stringLiteral(id.name), id)))
-                ])));
+                  t.objectExpression(importExpressions)
+                ]));
               }
+
             }
           }
 
