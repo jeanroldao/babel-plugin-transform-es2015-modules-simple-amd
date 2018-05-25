@@ -14,12 +14,13 @@ define([IMPORT_PATHS], function(IMPORT_VARS) {
     var imports = {};
     NAMED_IMPORTS;
     with (imports) { 
-      BODY;
+      (function(){
+        "use strict";
+        BODY;
+      })();
     }
 });
 `);
-
-var buildFunc = (0, _babelTemplate2.default)("function() { babelHelpers.interopRequireDefault(IMPORT).default; }");
 
 module.exports = function (_ref) {
   var t = _ref.types;
