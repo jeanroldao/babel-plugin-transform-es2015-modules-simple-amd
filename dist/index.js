@@ -11,14 +11,30 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var buildModule = (0, _babelTemplate2.default)(`
 define([IMPORT_PATHS], function(IMPORT_VARS) {
-    var imports = {};
-    NAMED_IMPORTS;
-    with (imports) { 
-      (function(){
-        "use strict";
-        BODY;
-      })();
+  var importHelper = {
+    createInteropRequire: function (moduleImports, importName, moduleName, moduleExports) {
+      if (moduleExports && !moduleImports[importName]) {
+        Object.defineProperty(moduleImports, importName, { 
+          get: function() { 
+            if (!moduleExports.__esModule && moduleName == 'default') { 
+                return moduleExports; 
+            } else { 
+                return moduleExports[moduleName];
+            }
+          } 
+        });
+      }
     }
+  };
+  
+  var imports = {};
+  NAMED_IMPORTS;
+  with (imports) { 
+    (function(){
+      "use strict";
+      BODY;
+    })();
+  }
 });
 `);
 
@@ -88,10 +104,10 @@ module.exports = function (_ref) {
                   var type = _ref2.type;
 
                   if (imported) {
-                    var importHelper = t.memberExpression(t.identifier("babelHelpers"), t.identifier("createInteropRequire"));
+                    var importHelper = t.memberExpression(t.identifier("importHelper"), t.identifier("createInteropRequire"));
                     namedImports.push(t.callExpression(importHelper, [t.identifier("imports"), t.stringLiteral(local.name), t.stringLiteral(imported.name), t.identifier(importedID.name)]));
                   } else if (type == 'ImportDefaultSpecifier') {
-                    var importHelper = t.memberExpression(t.identifier("babelHelpers"), t.identifier("createInteropRequire"));
+                    var importHelper = t.memberExpression(t.identifier("importHelper"), t.identifier("createInteropRequire"));
                     namedImports.push(t.callExpression(importHelper, [t.identifier("imports"), t.stringLiteral(local.name), t.stringLiteral('default'), t.identifier(importedID.name)]));
                   }
                 });
