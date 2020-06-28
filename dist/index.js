@@ -16,11 +16,20 @@ define([IMPORT_PATHS], function(IMPORT_VARS) {
       if (moduleExports && !moduleImports[importName]) {
         Object.defineProperty(moduleImports, importName, { 
           get: function() { 
+            var module;
             if (!moduleExports.__esModule && moduleName == 'default') { 
-                return moduleExports; 
+                module = moduleExports; 
             } else { 
-                return moduleExports[moduleName];
+                module = moduleExports[moduleName];
             }
+            
+            if (typeof module === 'function' && module.prototype && !module.prototype.isReactComponent) {
+              var moduleBind = Object.assign(Function.prototype.bind.call(module, null), module);
+              Object.defineProperties(moduleBind, Object.getOwnPropertyDescriptors(module));
+              return moduleBind;
+            }
+            
+            return module;
           } 
         });
       }
@@ -50,7 +59,7 @@ module.exports = function (_ref) {
               anonymousSources = [],
               vars = [],
               namedImports = [],
-              isModular = false,
+              isModular = true,
               middleDefaultExportID = false,
               middleExportIDs = []
 
