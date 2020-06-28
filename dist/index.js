@@ -62,10 +62,22 @@ module.exports = function (_ref) {
             if (_path.isExportDefaultDeclaration()) {
               var declaration = _path.get("declaration");
               middleDefaultExportID = _path.scope.generateUidIdentifier("export_default");
-              if(declaration.node.type === "FunctionDeclaration"){
-                _path.replaceWith(t.variableDeclaration('var', [
-                  t.variableDeclarator(middleDefaultExportID, t.functionExpression(null,declaration.node.params, declaration.node.body))
-                ]));
+              if(declaration.node.type === "FunctionDeclaration") {
+                if (declaration.node.id) {
+                  middleDefaultExportID = declaration.node.id;
+                  _path.replaceWith(declaration.node);
+                } else {
+                  _path.replaceWith(t.variableDeclaration('var', [
+                    t.variableDeclarator(middleDefaultExportID, t.functionExpression(null, declaration.node.params, declaration.node.body))
+                  ]));
+                }
+              } else if (declaration.node.type === "ClassDeclaration") {
+                if (declaration.node.id) {
+                  middleDefaultExportID = declaration.node.id;
+                } else {
+                  declaration.node.id = middleDefaultExportID;
+                }
+                _path.replaceWith(declaration.node);
               } else {
                 _path.replaceWith(t.variableDeclaration('var', [t.variableDeclarator(middleDefaultExportID, declaration.node)]));
               }
@@ -119,26 +131,26 @@ module.exports = function (_ref) {
             }
 
             if (isLast) {
-              var importExpressions = [
+              var exportExpressions = [
                 t.objectProperty(t.stringLiteral('__esModule'), t.booleanLiteral(true))
               ];
               
               if (middleDefaultExportID) {
-                importExpressions.push(t.objectProperty(t.stringLiteral('default'), middleDefaultExportID));
+                exportExpressions.push(t.objectProperty(t.stringLiteral('default'), middleDefaultExportID));
               }
               
               if (middleExportIDs.length > 0) {
-                importExpressions = importExpressions.concat(middleExportIDs.map(id => t.objectProperty(t.stringLiteral(id.name), id)));
+                exportExpressions = exportExpressions.concat(middleExportIDs.map(id => t.objectProperty(t.stringLiteral(id.name), id)));
               }
               
-              if (importExpressions.length > 0) {
+              if (exportExpressions.length > 0) {
                 sources.unshift(t.stringLiteral('exports'));
                 var exportsPath = path.scope.generateUidIdentifier('exports');
                 vars.unshift(exportsPath);
                 
                 _path.insertAfter(t.callExpression(t.memberExpression(t.identifier("Object"), t.identifier("assign")), [
                   exportsPath,
-                  t.objectExpression(importExpressions)
+                  t.objectExpression(exportExpressions)
                 ]));
               }
 
